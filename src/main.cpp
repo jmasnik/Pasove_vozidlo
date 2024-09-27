@@ -23,7 +23,7 @@
 #define PIN_PWM_CH2 15
 
 // AsyncWebServer on port 80
-//AsyncWebServer server(80);
+AsyncWebServer server(80);
 
 // Websocket
 //AsyncWebSocket ws("/ws");
@@ -44,6 +44,8 @@ uint8_t controller_ip_have;
 
 unsigned long back_link_last_ms;
 
+uint16_t tx_cnt;
+
 void initWiFi();
 void initPin();
 void initServer();
@@ -57,6 +59,8 @@ void setup() {
 
   controller_ip_have = 0;
   back_link_last_ms = 0;
+
+  tx_cnt = 0;
 
   control_led = 0;
   control_left = 0;
@@ -174,9 +178,13 @@ void loop() {
     } 
 
     if(ms - back_link_last_ms > 1000 && controller_ip_have == 1){
+      tx_cnt++;
+      sprintf(buff, "Ahoj z vozidla (%u)!", tx_cnt);
+
       Udp.beginPacket(controller_ip, 8889);
-      Udp.print("Ahoj z vozidla!");
+      Udp.print(buff);
       Udp.endPacket();
+
       back_link_last_ms = ms;
     }
 
@@ -205,12 +213,12 @@ void loop() {
 void initServer() {
   
   // Index
-  //server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-  //  request->send_P(200, "text/html", "Ahoj");
-  //});
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", "Pasove_vozidlo");
+  });
 
   // Start server
-  //server.begin();
+  server.begin();
 
   // UDP
   Udp.begin(localUdpPort);
@@ -244,16 +252,17 @@ void initPin() {
 void initWiFi() {
   
   // AP
+  /*
   WiFi.softAP("Pasove_vozidlo", "");
   IPAddress IP = WiFi.softAPIP();
   Serial.print("AP IP: ");
   Serial.println(IP);
   return;
+  */
 
   // STA
-  /*
   WiFi.mode(WIFI_STA);
-  WiFi.begin("", "");
+  WiFi.begin("mController", "heslo123");
   Serial.print("Connecting to WiFi ..");
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print('.');
@@ -263,5 +272,4 @@ void initWiFi() {
 
   Serial.print("IP: ");
   Serial.println(WiFi.localIP());
-  */
 }
