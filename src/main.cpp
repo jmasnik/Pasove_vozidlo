@@ -4,6 +4,7 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFiUdp.h>
+#include <ESP32Servo.h>
 
 // https://gist.github.com/santolucito/4016405f54850f7a216e9e453fe81803
 
@@ -22,6 +23,10 @@
 #define PIN_PWM_CH1 14
 #define PIN_PWM_CH2 15
 
+#define PIN_SERVO 13
+
+Servo servo;
+
 // AsyncWebServer on port 80
 AsyncWebServer server(80);
 
@@ -38,6 +43,7 @@ char incomingPacket[255];
 uint8_t control_led;
 int16_t control_left;
 int16_t control_right;
+uint8_t control_servo;
 
 IPAddress controller_ip;
 uint8_t controller_ip_have;
@@ -50,6 +56,8 @@ void initWiFi();
 void initPin();
 void initServer();
 void controlToAction();
+
+ESP32PWM pwm;
 
 /**
  * Setup
@@ -65,6 +73,28 @@ void setup() {
   control_led = 0;
   control_left = 0;
   control_right = 0;
+  control_servo = 0;
+
+  ESP32PWM::allocateTimer(0);
+
+  servo.setPeriodHertz(50);
+  servo.attach(PIN_SERVO);
+  
+/*
+while(1){
+    for(int posDegrees = 0; posDegrees <= 180; posDegrees++) {
+        servo.write(posDegrees);
+        Serial.println(posDegrees);
+        delay(20);
+    }
+
+    for(int posDegrees = 180; posDegrees >= 0; posDegrees--) {
+        servo.write(posDegrees);
+        Serial.println(posDegrees);
+        delay(20);
+    }
+}
+*/
 
   initPin();
   initWiFi();
@@ -124,6 +154,9 @@ void controlToAction(){
     ledcWrite(PIN_PWM_CH2, -control_right);
   }  
 
+  // Servo
+  servo.write(map(control_servo, 0, 100, 0, 180));
+
 }
 
 /**
@@ -155,7 +188,7 @@ void loop() {
 
         if(incomingPacket[0] == 'D'){
           ch_s = incomingPacket;
-          for(i = 0; i < 3; i++){
+          for(i = 0; i < 5; i++){
             ch_pt1 = strchr(ch_s, '|');
             ch_pt2 = strchr(ch_pt1 + 1, '|');
             memcpy(str, ch_pt1 + 1, ch_pt2 - ch_pt1 - 1);
@@ -166,12 +199,13 @@ void loop() {
             if(i == 0) control_left = -atoi(str);
             if(i == 1) control_right = -atoi(str);
             if(i == 2) control_led = atoi(str);
+            if(i == 4) control_servo = atoi(str);
           }
         }
 
         Serial.printf("UDP packet contents: %s\n", incomingPacket);
         
-        sprintf(buff, "Left: %d Right: %d LED: %u", control_left, control_right, control_led);
+        sprintf(buff, "Left: %d Right: %d LED: %u Servo: %u", control_left, control_right, control_led, control_servo);
         Serial.println(buff);
       }
       
